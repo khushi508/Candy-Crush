@@ -1,0 +1,141 @@
+import pygame
+import random
+
+# Initialize Pygame
+pygame.init()
+
+# Screen dimensions
+WIDTH, HEIGHT = 600, 600
+GRID_SIZE = 8
+TILE_SIZE = WIDTH // GRID_SIZE
+
+# Colors
+COLORS = [
+    (255, 0, 0),    # Red
+    (0, 255, 0),    # Green
+    (0, 0, 255),    # Blue
+    (255, 255, 0),  # Yellow
+    (255, 165, 0),  # Orange
+    (128, 0, 128)   # Purple
+]
+
+# Initialize screen
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
+pygame.display.set_caption("Candy Crush")
+
+# Fonts
+font = pygame.font.SysFont("Arial", 24)
+
+# Grid setup
+def create_grid():
+    return [[random.choice(COLORS) for _ in range(GRID_SIZE)] for _ in range(GRID_SIZE)]
+
+def draw_grid(grid):
+    for row in range(GRID_SIZE):
+        for col in range(GRID_SIZE):
+            color = grid[row][col]
+            pygame.draw.rect(screen, color, (col * TILE_SIZE, row * TILE_SIZE, TILE_SIZE, TILE_SIZE))
+            pygame.draw.rect(screen, (0, 0, 0), (col * TILE_SIZE, row * TILE_SIZE, TILE_SIZE, TILE_SIZE), 2)
+
+# Swap tiles
+def swap(grid, pos1, pos2):
+    grid[pos1[0]][pos1[1]], grid[pos2[0]][pos2[1]] = grid[pos2[0]][pos2[1]], grid[pos1[0]][pos1[1]]
+
+# Check matches
+def find_matches(grid):
+    matches = []
+
+    # Check rows
+    for row in range(GRID_SIZE):
+        match = [0]
+        for col in range(1, GRID_SIZE):
+            if grid[row][col] == grid[row][col - 1]:
+                match.append(col)
+            else:
+                if len(match) >= 3:
+                    matches.append([(row, c) for c in match])
+                match = [col]
+        if len(match) >= 3:
+            matches.append([(row, c) for c in match])
+
+    # Check columns
+    for col in range(GRID_SIZE):
+        match = [0]
+        for row in range(1, GRID_SIZE):
+            if grid[row][col] == grid[row - 1][col]:
+                match.append(row)
+            else:
+                if len(match) >= 3:
+                    matches.append([(r, col) for r in match])
+                match = [row]
+        if len(match) >= 3:
+            matches.append([(r, col) for r in match])
+
+    return matches
+
+# Remove matches
+def remove_matches(grid, matches):
+    for match in matches:
+        for (row, col) in match:
+            grid[row][col] = None
+
+# Drop candies
+def drop_candies(grid):
+    for col in range(GRID_SIZE):
+        empty_slots = [row for row in range(GRID_SIZE) if grid[row][col] is None]
+        if empty_slots:
+            for row in reversed(range(GRID_SIZE)):
+                if row not in empty_slots:
+                    for empty_row in empty_slots:
+                        if empty_row < row:
+                            grid[empty_row][col] = grid[row][col]
+                            grid[row][col] = None
+                            empty_slots.remove(empty_row)
+                            break
+            for empty_row in empty_slots:
+                grid[empty_row][col] = random.choice(COLORS)
+
+# Main game loop
+def main():
+    grid = create_grid()
+    clock = pygame.time.Clock()
+    selected_tile = None
+    running = True
+
+    while running:
+        screen.fill((255, 255, 255))
+        draw_grid(grid)
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                x, y = event.pos
+                row, col = y // TILE_SIZE, x // TILE_SIZE
+                if selected_tile:
+                    swap(grid, selected_tile, (row, col))
+                    matches = find_matches(grid)
+                    if matches:
+                        remove_matches(grid, matches)
+                        drop_candies(grid)
+                    else:
+                        swap(grid, selected_tile, (row, col))  # Undo swap if no match
+                    selected_tile = None
+                else:
+                    selected_tile = (row, col)
+
+        # Find and display matches
+        matches = find_matches(grid)
+        if matches:
+            for match in matches:
+                for (row, col) in match:
+                    pygame.draw.rect(screen, (255, 255, 255), (col * TILE_SIZE, row * TILE_SIZE, TILE_SIZE, TILE_SIZE))
+
+        pygame.display.flip()
+        clock.tick(30)
+
+    pygame.quit()
+
+if __name__ == "__main__":
+    main()
